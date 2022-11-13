@@ -9,11 +9,13 @@ class VerificarMiddleware
 {
     public function __invoke(Request $request, RequestHandler $handler): Response
     {
-        $header = $request->getHeaderLine('Authorization');
-        $token = trim(explode("Bearer", $header)[1]);
-        $esValido = false;
-        $response = new Response();
         try {
+            $esValido = false;
+            $response = new Response();
+            $header = $request->getHeaderLine('Authorization');
+            if (empty($header))
+                throw new Exception("No hay token");
+            $token = trim(explode("Bearer", $header)[1]);
             AutentificadorJWT::verificarToken($token);
             $esValido = true;
             //------------------------------------------------
@@ -24,8 +26,9 @@ class VerificarMiddleware
         }
 
         if ($esValido) {
-            // $payload = json_encode(array('valid' => $esValido));
+
             $response = $handler->handle($request);
+            // var_dump($response);
         }
 
         return $response->withHeader('Content-Type', 'application/json');

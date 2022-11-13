@@ -15,6 +15,7 @@ class VerificarAdminMiddleware
             $header = $request->getHeaderLine('Authorization');
             if ($header == "")
                 throw new Exception("Not Token");
+
             $token = trim(explode("Bearer", $header)[1]);
 
             $payload = AutentificadorJWT::ObtenerData($token);
@@ -28,6 +29,8 @@ class VerificarAdminMiddleware
         if ($esValido) {
 
             if ($payload->tipo == "admin") {
+
+                // var_dump($request);
 
                 $response = $handler->handle($request);
 

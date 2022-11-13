@@ -24,6 +24,7 @@ class CriptoController extends Cripto implements IApiUsable
           $nacionalidad = $parametros['nacionalidad'];
 
           try {
+            // var_dump($archivo['foto']);
             $foto = $archivo['foto'];
             if (is_null($foto) || $foto->getClientMediaType() == "") {
               throw new Exception("No file");
@@ -32,7 +33,7 @@ class CriptoController extends Cripto implements IApiUsable
             var_dump($ext);
             $ext = explode("/", $ext)[1];
             $ruta = "./Cryptos/" . $nombre . "." . $ext;
-            $foto->moveTo($ruta);
+            $foto->moveTo($ruta); //mueve la imagen recibida a esa ruta
           } catch (Exception $e) {
             echo "no se pudo subir la imagen";
             $ruta = "";
@@ -72,10 +73,59 @@ class CriptoController extends Cripto implements IApiUsable
   //-----------------------------------------------------------------------------------
   public function TraerUno($request, $response, $args)
   {
-    // Buscamos usuario por nombre
-    $usr = $args['usuario'];
-    $usuario = Usuario::obtenerUsuario($usr);
+    $parametros = $request->getParsedBody();
+    $usr = $args['nacionalidad'];
+
+    $usuario = Cripto::obtenerCriptoNacionalidad($usr);
     $payload = json_encode($usuario);
+
+    $response->getBody()->write($payload);
+    return $response
+      ->withHeader(
+        'Content-Type',
+        'application/json'
+      );
+  }
+  //----------------------------------------------------------------------------------------------------------------------------------
+  //-----------------------------------------------------------------------------------
+  public function TraerNacionalidad($request, $response, $args)
+  {
+    // $parametros = $request->getParsedBody();
+    $parametros = $request->getQueryParams();
+
+    $usr = $parametros['nacionalidad'];
+    var_dump($usr);
+    $lista = Cripto::obtenerNacionalidad($usr);
+    $payload = json_encode(array("listaCripto" => $lista));
+
+    $response->getBody()->write($payload);
+    return $response
+      ->withHeader(
+        'Content-Type',
+        'application/json'
+      );
+  }
+  //----------------------------------------------------------------------------------------------------------------------------------
+  //-----------------------------------------------------------------------------------
+  public function TraerId($request, $response, $args)
+  {
+    $body = $request->getParsedBody();
+
+    $header = $request->getHeaderLine('Authorization');
+    $token = trim(explode("Bearer", $header)[1]);
+    $datos = AutentificadorJWT::ObtenerData($token);
+
+
+    var_dump($datos->mail);
+
+    $parametros = $request->getQueryParams();
+
+    $usr = $parametros['id'];
+
+    $cripto = Cripto::obtenerId($usr);
+
+    $payload = json_encode(array("listaCripto" => $cripto, "datos" => $datos));
+    // $payload = json_encode($cripto);
 
     $response->getBody()->write($payload);
     return $response
@@ -100,62 +150,82 @@ class CriptoController extends Cripto implements IApiUsable
   ///MODIFICAR----------------------------------------------------------------------------------
   public function ModificarUno($request, $response, $args)
   {
+    $parametros = $request->getParsedBody();
+    $archivo = $request->getUploadedFiles();
+    $id = $parametros['id'];
 
-    $header = $request->getHeaderLine('Authorization');
-    $token = trim(explode("Bearer", $header)[1]);
-    $esValido = false;
+    $cripto = Cripto::obtenerId(intval($id));
 
-    try {
-      AutentificadorJWT::verificarToken($token);
-      $esValido = true;
-    } catch (Exception $e) {
-      $payload = json_encode(array('error' => $e->getMessage()));
-    }
-
-    if ($esValido) {
-      $parametros = $request->getParsedBody();
-      if ($parametros != null) {
-
-        var_dump($parametros);
-
-        $nombre = $parametros['nombre'];
-        $clave = $parametros['clave'];
-        $id = $parametros['id'];
-
-        $usr = new Usuario();
-        $usr->usuario = $nombre;
-        $usr->clave = $clave;
-        $usr->id = $id;
-
-        $usr->modificarUsuario();
-
-        $payload = json_encode(array("mensaje" => "Usuario modificado con exito"));
-      } else {
-        $payload = json_encode("error de datos");
+    // var_dump($cripto);
+    if (isset($cripto->nombre)) {
+      if (isset($parametros['nombre'])) {
+        $cripto->nombre = $parametros['nombre'];
       }
+      if (isset($parametros['precio'])) {
+        $cripto->precio = $parametros['precio'];
+      }
+      if (isset($parametros['nacionalidad'])) {
+        $cripto->nacionalidad = $parametros['nacionalidad'];
+      }
+      if (isset($archivo['foto'])) {
+        try {
+          $foto = $archivo['foto'];
+          if (is_null($foto)) {
+            throw new Exception("No file");
+          }
+
+          $ext = $foto->getClientMediaType();
+          $ext = explode("/", $ext)[1];
+          $ruta = "./Cryptos/" . $cripto->nombre . "." . $ext;
+          $foto->moveTo($ruta);
+
+          if ($cripto->foto != "") //si tiene una foto la muevo a backup
+          {
+            $rutaVieja = explode('/', $cripto->foto);
+            var_dump($rutaVieja);
+            $nombreArchivo = array_pop($xp); //me traigo el nombre
+            rename($cripto->foto, './Cryptos/Backup/' . $nombreArchivo);
+          }
+
+
+          $cripto->foto = $ruta;
+        } catch (Exception $e) {
+          var_dump($e->getMessage());
+
+        }
+      }
+
+      // var_dump($cripto);
+      $cripto->modificarCripto();
+
+      $payload = json_encode(array("mensaje" => "Crypto modificado con exito"));
+      $response->getBody()->write($payload);
+    } else {
+      $response->withStatus(404, "No se encuentra crypto");
     }
-    //-----------------------------------------------------------
-
-
-    $response->getBody()->write($payload);
     return $response
-      ->withHeader(
-        'Content-Type',
-        'application/json'
-      );
+      ->withHeader('Content-Type', 'application/json');
   }
-
+  //-------------------------------------------------------------------------------------------------
   public function BorrarUno($request, $response, $args)
   {
-    $parametros = $request->getParsedBody();
+    try {
+      //code...
+      $parametros = $request->getParsedBody();
 
 
-    $usuarioId = $parametros['usuarioId'];
-    Usuario::borrarUsuario($usuarioId);
+      $id = $parametros['id'];
 
-    $payload = json_encode(array("mensaje" => "Usuario borrado con exito"));
+      Cripto::borrarCripto($id);
 
-    $response->getBody()->write($payload);
+      $payload = json_encode(array("mensaje" => " borrado con exito"));
+
+      $response->getBody()->write($payload);
+    } catch (Exception $e) {
+      $payload = json_encode(array("mensaje" => "Error"));
+
+      $response->getBody()->write($payload);
+    }
     return $response
       ->withHeader(
         'Content-Type',

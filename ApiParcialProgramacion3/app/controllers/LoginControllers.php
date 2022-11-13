@@ -25,6 +25,7 @@ class LoginControllers extends Usuario
                 $payload = json_encode(array('OK' => $mensaje, 'jwt' => $token, 'tipo' => $usuario->tipo));
 
                 $response->getBody()->write($payload);
+
                 return $response
                     ->withHeader(
                         'Content-Type',
@@ -34,7 +35,7 @@ class LoginControllers extends Usuario
                 $mensaje = 'Invalid password.';
             }
         } else {
-            $mensaje = "Nada q mostrar";
+            $mensaje = "Error en Parametros";
         }
 
         $payload = json_encode($mensaje);
